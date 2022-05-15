@@ -24,33 +24,6 @@ SMTPSession smtp;
 /* Callback function to get the Email sending status */
 void smtpCallback(SMTP_Status status);
 
-
-//void keepWifiActive(void * parameters){
-//  for (;;) {
-//    if (WiFi.status() == WL_CONNECTED){
-//      Serial.println("Wifi is still connected");
-//      vTaskDelay(10000/ portTICK_PERIOD_MS);
-//      continue;
-//    }
-//
-//    Serial.println("WiFi is connecting.....");
-//    WiFi.mode(WIFI_STA);
-//    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-//    unsigned long startTime = millis();
-//    while(WiFi.status() != WL_CONNECTED && millis() - startTime < WIFI_TIMEOUT_MS){
-//      }
-//
-//      if (WiFi.status() != WL_CONNECTED){
-//        Serial.println("WiFi connection failed");
-//        vTaskDelay(20000/portTICK_PERIOD_MS);
-//        continue;
-//      }
-//      Serial.println("WiFi connected: "+ WiFi.localIP());
-//    }
-//    
-//  }
-
-
 //Function declarations
 void voltageMeasurements();
 void currentMeasurement();
@@ -65,8 +38,6 @@ void soundBuzzer1();
 void flash_tempLED();
 void sendMail(String textMsg);
 
-//const char* ssid     = "Shatta Bundle";
-//const char* password = "Rey Mysterio619";
 const char* host = "localhost";
 
 #define CELL1_PIN 36
@@ -124,16 +95,6 @@ void setup() {
   pinMode(VOLTAGE_BUZZER,OUTPUT);
   Serial.begin(9600); // Starts the serial communication
 
-//    xTaskCreatePinnedToCore(
-//    keepWifiActive,
-//    "Keep Wifi Active",
-//    5000,
-//    NULL,
-//    1,
-//    NULL,
-//    0
-//    );
-
   
   // initialize LCD
   lcd.init();
@@ -166,7 +127,7 @@ void loop() {
     temperatureMeasurements();
     checkTemp();
     cellBalancing();
-    //uploadToDatabase();
+    uploadToDatabase();
 
 
 
@@ -199,7 +160,6 @@ void checkCurrent(){
     lcd.clear();
     scrollText(0, damage, 250, 16);
     soundBuzzer();
-    //sendMail(damage);
   }
 }
 
@@ -271,10 +231,9 @@ void checkVoltages(){ //function to check voltage faults
   String faultMessage = "";
   if (v1<2.7){
     String damage = "C1 ";
-    //scrollText(0, damage, 250, 16);
     faultMessage = faultMessage + damage;
-    //soundBuzzer();
-    //sendMail(damage);
+    soundBuzzer();
+    sendMail(damage);
   }  else {
     String damage = "C1 is healthy";
     scrollText(0, damage, 250, 16);
@@ -283,9 +242,8 @@ void checkVoltages(){ //function to check voltage faults
   if (v2<2.7){
     String damage = "C2 ";
     faultMessage = faultMessage + damage;
-    //scrollText(0, damage, 250, 16);
-    //soundBuzzer();
-    //sendMail(damage);
+    soundBuzzer();
+    sendMail(damage);
   }  else {
     String damage = "C2 is healthy";
     scrollText(0, damage, 250, 16);
@@ -294,9 +252,8 @@ void checkVoltages(){ //function to check voltage faults
   if (v3<2.7){
     String damage = "C3 ";
     faultMessage = faultMessage + damage;
-    //scrollText(0, damage, 250, 16);
-    //soundBuzzer();
-    //sendMail(damage);
+    soundBuzzer();
+    sendMail(damage);
   }  else {
     String damage = "C3 is healthy";
     scrollText(0, damage, 250, 16);
@@ -305,9 +262,8 @@ void checkVoltages(){ //function to check voltage faults
   if (v4<2.7){
     String damage = "C4";
     faultMessage = faultMessage + damage;
-    //scrollText(0, damage, 250, 16);
-    //soundBuzzer();
-    //sendMail(damage);
+    soundBuzzer();
+    sendMail(damage);
   } else {
     String damage = "C4 is healthy";
     scrollText(0, damage, 250, 16);
@@ -338,8 +294,6 @@ void temperatureMeasurements(){  //function to measure temperature
       lcd.print(String("T1=")+ Temptx+String("C"));
       delay(5000);
       lcd.clear();
-//    String messageToScroll = String("T1=")+ Temptx+String("C");
-//    scrollText(0, messageToScroll, 250, 16);
 }
 
 void checkTemp(){ //function to check temperature values
@@ -348,7 +302,6 @@ void checkTemp(){ //function to check temperature values
     lcd.clear();
     scrollText(0, damage, 250, 16);
     soundBuzzer1();
-    //sendMail(damage);
   }  else {
       digitalWrite(TEMP_LED,LOW);
     }
