@@ -1,0 +1,290 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void voltageMeasurements();
+void currentMeasurement();
+void temperatureMeasurements();
+void cellBalancing();
+void checkVoltages();
+void checkTemp();
+void uploadToDatabase();
+
+const char* ssid     = "Shatta Bundle";
+const char* password = "Rey Mysterio619";
+const char* host = "localhost";
+
+int cell1_Pin=36;
+int thermistor1_Pin = 39; 
+int cell2_Pin=34;
+//int thermistor2_Pin = 35;
+int cell3_Pin=32;
+int currentPin = 35;
+int cell4_Pin=33;
+int pbalancing1 = 19;
+int pbalancing2 = 18;
+int pbalancing3 = 5;
+int pbalancing4 = 17;
+
+int voltage_BUZZER = 16;
+int temp_LED = 4;
+
+double Temptx=0.00;
+double R = 10000.0;   // voltage divider resistor value
+double Beta = 3950.0;  // Beta value
+double To = 298.15;    // Temperature in Kelvin for 25 degree Celsius
+double Ro = 10000.0;   // Resistance of Thermistor at 25 degree Celsius
+float VR,RT,ln,VR2,RT2,ln2,Temptx2;
+
+
+float adcMax = 4095.0;   // ADC resolution 12-bit (0-4095)
+float Vs = 5.0;          // supply voltage
+double currentValue = 0;
+
+float voltage1 = 0;
+float temp1 = 0;
+float v_voltage1 = 0;
+float v1=0;
+
+float voltage2 = 0;
+//float temp2 = 0;
+float v_voltage2 = 0;
+float v2=0;
+
+float voltage3 = 0;
+float v_voltage3 = 0;
+float v3=0;
+
+float voltage4 = 0;
+float v_voltage4 = 0;
+float v4=0;
+
+
+void setup() {
+  pinMode(pbalancing1,OUTPUT);
+  pinMode(pbalancing2,OUTPUT);
+  pinMode(pbalancing3,OUTPUT);
+  pinMode(pbalancing4,OUTPUT);
+  pinMode(temp_LED,OUTPUT);
+  pinMode(voltage_BUZZER,OUTPUT);
+  Serial.begin(9600); // Starts the serial communication
+  // initialize LCD
+  lcd.init();
+  //turn on LCD backlight                      
+  lcd.backlight();
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+    currentMeasurement();
+    voltageMeasurements();
+    temperatureMeasurements();
+    checkVoltages();
+    checkTemp();
+    cellBalancing();
+    uploadToDatabase();
+
+
+}
+    
+
+
+  float mapfloat(float x, float in_min, float in_max, float out_min, float out_max){
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+void scrollText(int row, String message, int delayTime, int lcdColumns) { //function to scroll text on LCD
+  for (int i=0; i < lcdColumns; i++) {
+    message = " " + message;  
+  } 
+  message = message + " "; 
+  for (int pos = 0; pos < message.length(); pos++) {
+    lcd.setCursor(0, row);
+    lcd.print(message.substring(pos, pos + lcdColumns));
+    delay(delayTime);
+  }
+}
+
+void currentMeasurement(){ //function to measure current using ACS712
+
+  float AcsValue=0.0,Samples=0.0,AvgAcs=0.0,AcsValueF=0.0;
+
+  for (int x = 0; x < 150; x++){ //Get 150 samples
+    AcsValue = analogRead(currentPin);     //Read current sensor values   
+    Samples = Samples + AcsValue;  //Add samples together
+    delay (3); // let ADC settle before next sample 3ms
+}
+    AvgAcs=Samples/150.0;//Taking Average of Samples
+    currentValue = ((AvgAcs * (Vs / adcMax))-2.5)/10;
+    Serial.print("I=");
+    Serial.print(currentValue);
+    Serial.println("A");
+}
+
+
+void voltageMeasurements(){ //function to measure voltage
+  float v_sample1=0.0,v_sample2=0.0,v_sample3=0.0,v_sample4=0.0;
+  float v1_avg=0.0,v2_avg=0.0,v3_avg=0.0,v4_avg=0.0;
+  for (int x = 0; x < 150; x++){ //read 150 samples of the ADC
+    voltage1 = analogRead(cell1_Pin);
+    v_sample1 = v_sample1+voltage1;
+    voltage2 = analogRead(cell2_Pin);
+    v_sample2 = v_sample2+voltage2;
+    voltage3 = analogRead(cell3_Pin);
+    v_sample3 = v_sample3+voltage3;
+    voltage4 = analogRead(cell4_Pin);
+    v_sample4 = v_sample4+voltage4;
+    delay(3);
+  }
+  v1_avg = v_sample1/150;
+  v2_avg = v_sample2/150;
+  v3_avg = v_sample3/150;
+  v4_avg = v_sample4/150;
+  
+  
+    
+  v_voltage1 = mapfloat(v1_avg, 0, 4095, 0, 3.3);  
+  double R1 = 1000;
+  double R2 = 3000;
+  v1 = (v_voltage1/(R2/(R1+R2)));
+  Serial.print("v1=");
+  Serial.print(v_voltage1);
+  Serial.println("V");
+
+
+  v_voltage2 = mapfloat(v2_avg, 0, 4095, 0, 3.3); 
+  double R3 = 4700;
+  double R4 = 2700;
+  v2 = ((v_voltage2/(R4/(R3+R4))))-v1;
+  Serial.print("v2=");
+  Serial.print(v_voltage2);
+  Serial.println("V");
+
+  v_voltage3 = mapfloat(v3_avg, 0, 4095, 0, 3.3);
+  double R5 = 1000;
+  double R6 = 330;
+  v3 = ((v_voltage3/(R6/(R5+R6))))-(v2+v1);
+  Serial.print("v3=");
+  Serial.print(v_voltage3);
+  Serial.println("V");
+
+
+  v_voltage4 = mapfloat(v4_avg, 0, 4095, 0, 3.3);
+  double R7 = 4700;
+  double R8 = 1000;
+  v4 = ((v_voltage4/(R8/(R7+R8))));
+  Serial.print("v4=");
+  Serial.print(v_voltage4);
+  Serial.println("V");
+  String messageToScroll2 = String("V1=")+ v1+String("V")+ String(" V2=")+ v2+String("V")+ String(" V3=")+ v3+String("V")+String(" V4=")+ v4+String("V");
+  scrollText(1, messageToScroll2, 250, 16);
+  delay(1000);
+}
+
+void checkVoltages(){ //function to check voltage faults
+  if (v1<2.8 || v2<2.8 || v3<2.8 || v4<2.8){
+    String damage = "A cell is damaged";
+    scrollText(0, damage, 250, 16);
+    for (int p=0;p<5;p++){
+      digitalWrite(voltage_LED,HIGH);
+      delay(500);
+      digitalWrite(voltage_LED,LOW);
+      delay(500);
+    }
+  }  else {
+      digitalWrite(voltage_LED,LOW);
+    }
+    lcd.clear();
+}
+
+
+void temperatureMeasurements(){  //function to measure temperature
+      temp1 = analogRead(thermistor1_Pin);
+      temp1 = (5.00 / 4095.00) * temp1;
+      VR = 5 - temp1;
+      RT = temp1 / (VR / R);
+      ln = log(RT / Ro);
+      Temptx = (1 / ((ln / Beta) + (1 / To)));
+      Temptx = Temptx - 273.15;
+      Serial.print("T1=");
+      Serial.print(Temptx);
+      Serial.println("C");
+    String messageToScroll = String("T1=")+ Temptx+String("C");
+    scrollText(0, messageToScroll, 250, 16);
+}
+
+void checkTemp(){ //function to check temperature values
+  if(Temptx<10 || Temptx>45){
+    for (int j=0;j<5;j++){
+      digitalWrite(temp_LED,HIGH);
+      delay(500);
+      digitalWrite(temp_LED,LOW);
+      delay(500);
+    }
+  }  else {
+      digitalWrite(temp_LED,LOW);
+    }
+  }
+
+void cellBalancing(){ //function for cell balancing
+  if (v1 > v2||v1>v3||v1>v4) {
+    digitalWrite(pbalancing1,HIGH);
+  } else {
+    digitalWrite(pbalancing1,LOW);
+  }
+  if (v2 > v1&&v2>v3&&v2>v4) {
+    digitalWrite(pbalancing2,HIGH);
+  } else {
+    digitalWrite(pbalancing2,LOW);
+  }
+  if (v3 > v1&&v3>v2&&v3>v4) {
+    digitalWrite(pbalancing3,HIGH);
+  } else {
+    digitalWrite(pbalancing3,LOW);
+  }
+  if (v4 > v1&&v4>v2&&v4>v3) {
+    digitalWrite(pbalancing4,HIGH);
+  } else {
+    digitalWrite(pbalancing4,LOW);
+  }
+}
+
+void uploadToDatabase(){ //function to send data to the database
+
+  HTTPClient http;
+  WiFiClient client;
+  String url="http://capstonebms.000webhostapp.com/insert.php?insert=1&voltage1=" + String(v1) + "&voltage2=" +String(v2) + "&voltage3=" +String(v3) + "&voltage4=" +String(v4) + "&temp1=" +String(Temptx) + "&temp2=" +String(Temptx2) + "&current=" +String(currentValue);
+  Serial.println(url);
+  http.begin(url.c_str());
+  int httpsCode=http.GET();
+  if(httpsCode>0){
+    Serial.println("done");
+    
+    }
+  else {
+        Serial.print("Error code: ");
+        Serial.println(httpsCode);
+      }
+    String result=http.getString();
+  //Serial.println(result);
+
+  http.end();
+}
+ 
